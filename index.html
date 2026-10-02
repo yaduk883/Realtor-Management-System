@@ -122,17 +122,17 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-// ====== 1) PASTE YOUR PROJECT VALUES HERE (the anon key is meant to be public; security comes from RLS) ======
-const SUPABASE_URL = "https://zclgjvtcpbdiuiyqutao.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjbGdqdnRjcGJkaXVpeXF1dGFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NTMzOTQsImV4cCI6MjEwNjUyOTM5NH0.ITPVngphmF0tHsmdZYmnyxqn0DwLFUWOAc5OKApGTbo";
-// ==========================================================================================================
+
+const SUPABASE_URL = "YOUR-PROJECT";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 const inr = n => "₹" + Number(n).toLocaleString("en-IN", {maximumFractionDigits: 0});
 let items = [], isAdmin = false;
 const land = c => c >= 100 ? +(c / 100).toFixed(2) + " acres (" + c + " cents)" : c + " cents";
 
-// Safe DOM builder: always uses textContent, never innerHTML, so stored text can't run as code
+
 function el(tag, props = {}, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) k === "class" ? n.className = v : n.setAttribute(k, v);
