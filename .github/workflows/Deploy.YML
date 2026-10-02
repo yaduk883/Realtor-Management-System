@@ -30,6 +30,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Remove stray spaces or line breaks pasted into the secrets
+          SUPABASE_URL=$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]'); export SUPABASE_URL
+          SUPABASE_ANON_KEY=$(printf '%s' "$SUPABASE_ANON_KEY" | tr -d '[:space:]'); export SUPABASE_ANON_KEY
+
           [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::Add SUPABASE_URL and SUPABASE_ANON_KEY under Settings > Secrets and variables > Actions."; exit 1; }
           case "$SUPABASE_URL" in https://*.supabase.co) ;; *) echo "::error::SUPABASE_URL must look like https://xxxx.supabase.co"; exit 1;; esac
 
@@ -44,14 +48,18 @@ jobs:
 
           mkdir dist
           python3 - <<'PY'
-          import os
+          import os, re, json
           s = open("index.html", encoding="utf-8").read()
-          s = s.replace("https://YOUR-PROJECT.supabase.co", os.environ["SUPABASE_URL"].rstrip("/"))
-          s = s.replace("YOUR-ANON-PUBLIC-KEY", os.environ["SUPABASE_ANON_KEY"])
+          url = os.environ["SUPABASE_URL"].rstrip("/")
+          key = os.environ["SUPABASE_ANON_KEY"]
+          # Replace the whole line, whatever placeholder text is currently in it
+          s, n1 = re.subn(r'const SUPABASE_URL = ".*?";', lambda m: "const SUPABASE_URL = " + json.dumps(url) + ";", s, count=1)
+          s, n2 = re.subn(r'const SUPABASE_ANON_KEY = ".*?";', lambda m: "const SUPABASE_ANON_KEY = " + json.dumps(key) + ";", s, count=1)
+          assert n1 == 1 and n2 == 1, "Could not find the SUPABASE_URL / SUPABASE_ANON_KEY lines in index.html"
           open("dist/index.html", "w", encoding="utf-8").write(s)
           PY
 
-          grep -q "YOUR-PROJECT" dist/index.html && { echo "::error::Placeholders were not replaced."; exit 1; }
+          grep -q "YOUR-" dist/index.html && { echo "::error::Placeholders were not replaced."; exit 1; }
           touch dist/.nojekyll
           echo "Build OK"
 
