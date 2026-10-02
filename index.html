@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Land Ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Hanken+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eaf0ee;--card:#fff;--ink:#12261f;--mute:#5d6f68;--line:#d3ddd9;--acc:#1b6b57;--acc2:#e3b341;--bad:#b3261e}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 'Hanken Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+h1,h2{font-family:Fraunces,Georgia,serif;margin:0}
+.hidden{display:none!important}
+button,input,select,textarea{font:inherit}
+:focus-visible{outline:3px solid var(--acc2);outline-offset:2px}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:.65rem 1.1rem;font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+.btn.danger{background:var(--bad)}
+.btn:disabled{opacity:.6;cursor:wait}
+label{display:block;font-weight:500;margin:.9rem 0 .25rem}
+input,select,textarea{width:100%;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+.msg{margin:.8rem 0 0;font-size:.95rem;min-height:1.2em}.msg.err{color:var(--bad)}.msg.ok{color:var(--acc)}
+/* login */
+#login{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
+.hero{background:var(--acc);color:#fff;padding:3rem;display:flex;flex-direction:column;justify-content:flex-end;
+background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 2px,transparent 2px 28px)}
+.hero h1{font-size:clamp(2.2rem,5vw,3.6rem);line-height:1.05}.hero p{max-width:30ch;opacity:.9}
+.formwrap{display:grid;place-items:center;padding:2rem}.formwrap form{width:min(380px,100%)}
+/* app */
+header{background:var(--ink);color:#fff;display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;flex-wrap:wrap}
+header h2{font-size:1.3rem;margin-right:auto}
+nav{display:flex;gap:.3rem}
+nav button{background:none;border:0;color:#cfe0da;padding:.5rem .9rem;border-radius:8px;cursor:pointer;font-weight:500}
+nav button[aria-current=page]{background:var(--acc);color:#fff}
+main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
+.top{display:flex;gap:1rem;align-items:end;justify-content:space-between;flex-wrap:wrap;margin-bottom:1rem}
+.top input{max-width:280px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.1rem;border-left:6px solid var(--acc)}
+.card h3{margin:0 0 .2rem;font-size:1.1rem}
+.tag{display:inline-block;background:#e6f1ed;color:var(--acc);border-radius:99px;padding:.1rem .6rem;font-size:.82rem;font-weight:700}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.8rem 0}
+.stats b{display:block;font-size:1.05rem}.stats span,.mute{color:var(--mute);font-size:.88rem}
+.tag.sold{background:#f6dcd9;color:var(--bad)}.top .f{display:flex;gap:.6rem}.top .f select{width:auto}
+.cardfoot{display:flex;justify-content:space-between;align-items:center;margin-top:.8rem;gap:.5rem}.btn.sm{padding:.4rem .8rem;font-size:.9rem}
+.total{font-family:Fraunces,serif;font-size:1.4rem;color:var(--acc)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.4rem;max-width:640px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.empty{padding:2.5rem;text-align:center;color:var(--mute);border:2px dashed var(--line);border-radius:12px}
+.rm{display:flex;justify-content:space-between;align-items:center;gap:1rem;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin-bottom:.6rem}
+@media(max-width:720px){#login{grid-template-columns:1fr}.hero{padding:2rem;min-height:30vh}.row2{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <div class="hero"><h1>Land Ledger</h1><p>Every plot, owner and price in one private place.</p></div>
+  <div class="formwrap">
+    <form id="loginForm" autocomplete="on">
+      <h2>Sign in</h2>
+      <label for="email">Email</label><input id="email" type="email" required autocomplete="username">
+      <label for="pw">Password</label><input id="pw" type="password" required minlength="8" autocomplete="current-password">
+      <p class="msg err" id="loginMsg" role="alert"></p>
+      <button class="btn" id="loginBtn" style="width:100%;margin-top:.6rem">Sign in</button>
+    </form>
+  </div>
+</section>
+
+<div id="app" class="hidden">
+  <header>
+    <h2>Land Ledger</h2>
+    <nav aria-label="Main">
+      <button data-v="list">Properties</button>
+      <button data-v="add">Add property</button>
+      <button data-v="remove" id="navRemove" class="hidden">Remove property</button>
+    </nav>
+    <button class="btn ghost" id="logout" style="color:#fff;border-color:#fff">Sign out</button>
+  </header>
+  <main>
+    <section id="v-list">
+      <div class="top"><h1>Properties</h1><div class="f"><input id="search" type="search" placeholder="Search location, owner, type" aria-label="Search"><select id="sfilter" aria-label="Status filter"><option value="">All</option><option>Available</option><option>Sold</option></select></div></div>
+      <div class="grid" id="cards"></div>
+    </section>
+
+    <section id="v-add" class="hidden">
+      <h1 style="margin-bottom:1rem">Add property</h1>
+      <form class="panel" id="addForm">
+        <label for="location">Location</label><input id="location" required minlength="2" maxlength="200">
+        <label for="ltype">Type of land</label>
+        <select id="ltype" required>
+          <option>Residential</option><option>Agricultural</option><option>Commercial</option><option>Industrial</option><option>Plot / Layout</option><option>Other</option>
+        </select>
+        <div class="row2">
+          <div><label for="cents">Total land</label><input id="cents" type="number" min="0.01" step="any" required inputmode="decimal"></div>
+          <div><label for="unit">Unit</label><select id="unit"><option value="1">Cents</option><option value="100">Acres</option></select></div>
+        </div>
+        <div class="row2">
+          <div><label for="ppc">Price per cent (₹)</label><input id="ppc" type="number" min="0" step="any" required inputmode="decimal"></div>
+          <div><label for="status">Status</label><select id="status"><option>Available</option><option>Sold</option></select></div>
+        </div>
+        <p class="mute" id="calc">Total value: ₹0</p>
+        <div class="row2">
+          <div><label for="owner">Owner</label><input id="owner" required minlength="2" maxlength="120"></div>
+          <div><label for="phone">Owner phone (optional)</label><input id="phone" type="tel" maxlength="20"></div>
+        </div>
+        <label for="details">Details</label><textarea id="details" rows="4" maxlength="2000" placeholder="Road access, water, documents, boundaries…"></textarea>
+        <p class="msg" id="addMsg" role="status"></p>
+        <button class="btn" id="addBtn">Save property</button>
+      </form>
+    </section>
+
+    <section id="v-remove" class="hidden">
+      <h1 style="margin-bottom:1rem">Remove property</h1>
+      <div id="rmList"></div>
+      <p class="msg" id="rmMsg" role="status"></p>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// ====== 1) PASTE YOUR PROJECT VALUES HERE (the anon key is meant to be public; security comes from RLS) ======
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+// ==========================================================================================================
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const inr = n => "₹" + Number(n).toLocaleString("en-IN", {maximumFractionDigits: 0});
+let items = [], isAdmin = false;
+const land = c => c >= 100 ? +(c / 100).toFixed(2) + " acres (" + c + " cents)" : c + " cents";
+
+// Safe DOM builder: always uses textContent, never innerHTML, so stored text can't run as code
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) k === "class" ? n.className = v : n.setAttribute(k, v);
+  kids.flat().forEach(c => n.append(c instanceof Node ? c : document.createTextNode(c)));
+  return n;
+}
+const show = (id, on) => $(id).classList.toggle("hidden", !on);
+
+function setView(v) {
+  ["list", "add", "remove"].forEach(x => show("v-" + x, x === v));
+  document.querySelectorAll("nav button").forEach(b => b.dataset.v === v ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  if (v !== "add") load();
+}
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => setView(b.dataset.v));
+
+async function load() {
+  const { data, error } = await db.from("properties").select("*").order("created_at", { ascending: false });
+  if (error) { items = []; $("cards").replaceChildren(el("div", {class: "empty"}, "Could not load properties. Check your connection and try again.")); return; }
+  items = data; renderList(); renderRemove();
+}
+
+function renderList() {
+  const q = $("search").value.trim().toLowerCase();
+  const sf = $("sfilter").value;
+  const rows = items.filter(p => (!sf || p.status === sf) && [p.location, p.owner, p.land_type].join(" ").toLowerCase().includes(q));
+  if (!rows.length) { $("cards").replaceChildren(el("div", {class: "empty"}, items.length ? "No properties match your search." : "No properties yet. Use “Add property” to save your first one.")); return; }
+  $("cards").replaceChildren(...rows.map(p => el("article", {class: "card"},
+    el("span", {class: "tag" + (p.status === "Sold" ? " sold" : "")}, p.status), " ", el("span", {class: "tag"}, p.land_type),
+    el("h3", {}, p.location),
+    el("div", {class: "stats"},
+      el("div", {}, el("b", {}, land(+p.total_cents)), el("span", {}, "Total land")),
+      el("div", {}, el("b", {}, inr(p.price_per_cent)), el("span", {}, "Per cent"))),
+    el("div", {class: "total"}, inr(p.total_cents * p.price_per_cent)),
+    el("p", {class: "mute", style: "margin:.6rem 0 0"}, "Owner: " + p.owner + (p.owner_phone ? " · " + p.owner_phone : "")),
+    p.details ? el("p", {style: "margin:.5rem 0 0"}, p.details) : "",
+    statusBtn(p))));
+}
+$("search").oninput = $("sfilter").onchange = renderList;
+
+function statusBtn(p) {
+  const next = p.status === "Sold" ? "Available" : "Sold";
+  const b = el("button", {class: "btn ghost sm"}, "Mark as " + next.toLowerCase());
+  b.onclick = async () => {
+    b.disabled = true;
+    const { error } = await db.from("properties").update({ status: next }).eq("id", p.id);
+    if (error) { b.disabled = false; b.textContent = "Could not update. Try again."; } else load();
+  };
+  return el("div", {class: "cardfoot"}, b);
+}
+
+function renderRemove() {
+  if (!isAdmin) { $("rmList").replaceChildren(el("div", {class: "empty"}, "Only the admin can remove properties.")); return; }
+  if (!items.length) { $("rmList").replaceChildren(el("div", {class: "empty"}, "Nothing to remove.")); return; }
+  $("rmList").replaceChildren(...items.map(p => {
+    const b = el("button", {class: "btn danger"}, "Remove");
+    b.onclick = async () => {
+      if (!confirm("Remove “" + p.location + "” owned by " + p.owner + "? This cannot be undone.")) return;
+      const { error } = await db.from("properties").delete().eq("id", p.id);
+      $("rmMsg").className = "msg " + (error ? "err" : "ok");
+      $("rmMsg").textContent = error ? "Could not remove. Try again." : "Property removed.";
+      if (!error) load();
+    };
+    return el("div", {class: "rm"}, el("div", {}, el("b", {}, p.location), el("div", {class: "mute"}, p.land_type + " · " + p.owner)), b);
+  }));
+}
+
+const calc = () => $("calc").textContent = "Total value: " + inr((+$("cents").value || 0) * (+$("unit").value) * (+$("ppc").value || 0));
+$("cents").oninput = $("ppc").oninput = $("unit").onchange = calc;
+
+$("addForm").onsubmit = async e => {
+  e.preventDefault();
+  const btn = $("addBtn"), msg = $("addMsg"); btn.disabled = true;
+  const { error } = await db.from("properties").insert({
+    location: $("location").value.trim(), land_type: $("ltype").value,
+    total_cents: +$("cents").value * +$("unit").value, status: $("status").value, price_per_cent: +$("ppc").value,
+    owner: $("owner").value.trim(), owner_phone: $("phone").value.trim() || null,
+    details: $("details").value.trim() || null
+  });
+  btn.disabled = false;
+  msg.className = "msg " + (error ? "err" : "ok");
+  if (error) { msg.textContent = "Could not save. Check all fields and try again."; return; }
+  e.target.reset(); calc(); load(); msg.textContent = "Property saved."; 
+};
+
+$("loginForm").onsubmit = async e => {
+  e.preventDefault(); const b = $("loginBtn"); b.disabled = true; $("loginMsg").textContent = "";
+  const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pw").value });
+  b.disabled = false;
+  if (error) $("loginMsg").textContent = "Wrong email or password.";
+  else $("pw").value = "";
+};
+$("logout").onclick = () => db.auth.signOut();
+
+async function gate(session) {
+  show("login", !session); show("app", !!session);
+  isAdmin = false;
+  if (session) {
+    const { data } = await db.from("admins").select("user_id").maybeSingle();
+    isAdmin = !!data;
+    $("navRemove").classList.toggle("hidden", !isAdmin);
+    setView("list");
+  } else items = [];
+}
+db.auth.onAuthStateChange((_e, s) => gate(s));
+db.auth.getSession().then(({ data }) => gate(data.session));
+</script>
+</body>
+</html>
