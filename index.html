@@ -273,19 +273,27 @@ $("loginForm").onsubmit = async e => {
 };
 $("logout").onclick = () => db.auth.signOut();
 
+let curUid;   // undefined until the first auth event
 async function gate(session) {
   show("login", !session); show("app", !!session);
   isAdmin = false;
-  if (session) {
+  if (!session) { items = []; return; }
+  try {
     const { data } = await db.from("admins").select("user_id").maybeSingle();
     isAdmin = !!data;
-    $("navRemove").classList.toggle("hidden", !isAdmin);
-    setView("list");
-  } else items = [];
+  } catch (e) { console.error(e); }
+  $("navRemove").classList.toggle("hidden", !isAdmin);
+  setView("list");
 }
 if (db) {
-  db.auth.onAuthStateChange((_e, s) => gate(s));
-  db.auth.getSession().then(({ data }) => gate(data.session));
+  // Do not call the database inside this callback directly: it can freeze the client.
+  // Hand the work to the next tick instead.
+  db.auth.onAuthStateChange((_event, session) => {
+    const uid = session ? session.user.id : null;
+    if (uid === curUid) return;
+    curUid = uid;
+    setTimeout(() => gate(session), 0);
+  });
 } else $("loginMsg").textContent = cfgError;
 </script>
 </body>
