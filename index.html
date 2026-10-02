@@ -122,17 +122,26 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-  
+// ====== 1) PASTE YOUR PROJECT VALUES HERE (the anon key is meant to be public; security comes from RLS) ======
 const SUPABASE_URL = "YOUR-PROJECT";
 const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
-
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ==========================================================================================================
+let db = null, cfgError = "";
+const cleanUrl = String(SUPABASE_URL).trim().replace(/\/+$/, "");
+if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(cleanUrl) || cleanUrl.includes("YOUR-PROJECT"))
+  cfgError = "Setup problem: the Supabase URL in this site is missing or wrong. It must look like https://abcdxyz.supabase.co (from Project Settings > API).";
+else if (!SUPABASE_ANON_KEY || String(SUPABASE_ANON_KEY).includes("YOUR-"))
+  cfgError = "Setup problem: the Supabase anon key in this site is missing.";
+else {
+  try { db = supabase.createClient(cleanUrl, String(SUPABASE_ANON_KEY).trim()); }
+  catch (e) { cfgError = "Setup problem: could not start the database connection (" + e.message + ")."; }
+}
 const $ = id => document.getElementById(id);
 const inr = n => "₹" + Number(n).toLocaleString("en-IN", {maximumFractionDigits: 0});
 let items = [], isAdmin = false;
 const land = c => c >= 100 ? +(c / 100).toFixed(2) + " acres (" + c + " cents)" : c + " cents";
 
-
+// Safe DOM builder: always uses textContent, never innerHTML, so stored text can't run as code
 function el(tag, props = {}, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) k === "class" ? n.className = v : n.setAttribute(k, v);
@@ -218,7 +227,9 @@ $("addForm").onsubmit = async e => {
 };
 
 $("loginForm").onsubmit = async e => {
-  e.preventDefault(); const b = $("loginBtn"); b.disabled = true; $("loginMsg").textContent = "";
+  e.preventDefault();
+  if (!db) { $("loginMsg").textContent = cfgError; return; }
+  const b = $("loginBtn"); b.disabled = true; $("loginMsg").textContent = "";
   const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pw").value });
   b.disabled = false;
   if (error) {
@@ -242,8 +253,10 @@ async function gate(session) {
     setView("list");
   } else items = [];
 }
-db.auth.onAuthStateChange((_e, s) => gate(s));
-db.auth.getSession().then(({ data }) => gate(data.session));
+if (db) {
+  db.auth.onAuthStateChange((_e, s) => gate(s));
+  db.auth.getSession().then(({ data }) => gate(data.session));
+} else $("loginMsg").textContent = cfgError;
 </script>
 </body>
 </html>
