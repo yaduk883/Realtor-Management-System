@@ -44,7 +44,7 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.8rem 0}
 .stats b{display:block;font-size:1.05rem}.stats span,.mute{color:var(--mute);font-size:.88rem}
 .tag.sold{background:#f6dcd9;color:var(--bad)}.top .f{display:flex;gap:.6rem}.top .f select{width:auto}
-.cardfoot{display:flex;justify-content:space-between;align-items:center;margin-top:.8rem;gap:.5rem}.btn.sm{padding:.4rem .8rem;font-size:.9rem}
+.cardfoot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-top:.8rem;gap:.5rem}.btn.sm{padding:.4rem .8rem;font-size:.9rem}
 .total{font-family:Fraunces,serif;font-size:1.4rem;color:var(--acc)}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.4rem;max-width:640px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
@@ -86,7 +86,7 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
     </section>
 
     <section id="v-add" class="hidden">
-      <h1 style="margin-bottom:1rem">Add property</h1>
+      <h1 id="addTitle" style="margin-bottom:1rem">Add property</h1>
       <form class="panel" id="addForm">
         <label for="location">Location</label><input id="location" required minlength="2" maxlength="200">
         <label for="ltype">Type of land</label>
@@ -108,7 +108,7 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
         </div>
         <label for="details">Details</label><textarea id="details" rows="4" maxlength="2000" placeholder="Road access, water, documents, boundaries…"></textarea>
         <p class="msg" id="addMsg" role="status"></p>
-        <button class="btn" id="addBtn">Save property</button>
+        <button class="btn" id="addBtn">Save property</button> <button type="button" class="btn ghost hidden" id="cancelEdit">Cancel</button>
       </form>
     </section>
 
@@ -122,10 +122,10 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-
+// ====== 1) PASTE YOUR PROJECT VALUES HERE (the anon key is meant to be public; security comes from RLS) ======
 const SUPABASE_URL = "https://zclgjvtcpbdiuiyqutao.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjbGdqdnRjcGJkaXVpeXF1dGFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NTMzOTQsImV4cCI6MjEwNjUyOTM5NH0.ITPVngphmF0tHsmdZYmnyxqn0DwLFUWOAc5OKApGTbo";
-
+// ==========================================================================================================
 let db = null, cfgError = "";
 const cleanUrl = String(SUPABASE_URL).trim().replace(/\/+$/, "");
 if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(cleanUrl) || cleanUrl.includes("YOUR-PROJECT"))
@@ -138,7 +138,7 @@ else {
 }
 const $ = id => document.getElementById(id);
 const inr = n => "₹" + Number(n).toLocaleString("en-IN", {maximumFractionDigits: 0});
-let items = [], isAdmin = false;
+let items = [], isAdmin = false, editId = null;
 const land = c => c >= 100 ? +(c / 100).toFixed(2) + " acres (" + c + " cents)" : c + " cents";
 
 // Safe DOM builder: always uses textContent, never innerHTML, so stored text can't run as code
@@ -155,7 +155,7 @@ function setView(v) {
   document.querySelectorAll("nav button").forEach(b => b.dataset.v === v ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   if (v !== "add") load();
 }
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => setView(b.dataset.v));
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => { if (b.dataset.v === "add" && editId) endEdit(); setView(b.dataset.v); });
 
 async function load() {
   const { data, error } = await db.from("properties").select("*").order("created_at", { ascending: false });
@@ -183,13 +183,29 @@ $("search").oninput = $("sfilter").onchange = renderList;
 
 function statusBtn(p) {
   const next = p.status === "Sold" ? "Available" : "Sold";
-  const b = el("button", {class: "btn ghost sm"}, "Mark as " + next.toLowerCase());
-  b.onclick = async () => {
-    b.disabled = true;
+  const st = el("button", {class: "btn ghost sm"}, "Mark as " + next.toLowerCase());
+  st.onclick = async () => {
+    st.disabled = true;
     const { error } = await db.from("properties").update({ status: next }).eq("id", p.id);
-    if (error) { b.disabled = false; b.textContent = "Could not update. Try again."; } else load();
+    if (error) { st.disabled = false; st.textContent = "Could not update. Try again."; } else load();
   };
-  return el("div", {class: "cardfoot"}, b);
+  const ed = el("button", {class: "btn ghost sm"}, "Edit");
+  ed.onclick = () => startEdit(p);
+  const acts = [st, ed];
+  if (isAdmin) {
+    const rm = el("button", {class: "btn danger sm"}, "Remove");
+    rm.onclick = () => removeProperty(p);
+    acts.push(rm);
+  }
+  return el("div", {class: "cardfoot"}, acts);
+}
+
+async function removeProperty(p) {
+  if (!confirm("Remove “" + p.location + "” owned by " + p.owner + "? This cannot be undone.")) return;
+  const { error } = await db.from("properties").delete().eq("id", p.id);
+  $("rmMsg").className = "msg " + (error ? "err" : "ok");
+  $("rmMsg").textContent = error ? "Could not remove. Try again." : "Property removed.";
+  if (error) alert("Could not remove. Only the admin can remove properties."); else load();
 }
 
 function renderRemove() {
@@ -197,13 +213,7 @@ function renderRemove() {
   if (!items.length) { $("rmList").replaceChildren(el("div", {class: "empty"}, "Nothing to remove.")); return; }
   $("rmList").replaceChildren(...items.map(p => {
     const b = el("button", {class: "btn danger"}, "Remove");
-    b.onclick = async () => {
-      if (!confirm("Remove “" + p.location + "” owned by " + p.owner + "? This cannot be undone.")) return;
-      const { error } = await db.from("properties").delete().eq("id", p.id);
-      $("rmMsg").className = "msg " + (error ? "err" : "ok");
-      $("rmMsg").textContent = error ? "Could not remove. Try again." : "Property removed.";
-      if (!error) load();
-    };
+    b.onclick = () => removeProperty(p);
     return el("div", {class: "rm"}, el("div", {}, el("b", {}, p.location), el("div", {class: "mute"}, p.land_type + " · " + p.owner)), b);
   }));
 }
@@ -211,19 +221,39 @@ function renderRemove() {
 const calc = () => $("calc").textContent = "Total value: " + inr((+$("cents").value || 0) * (+$("unit").value) * (+$("ppc").value || 0));
 $("cents").oninput = $("ppc").oninput = $("unit").onchange = calc;
 
+function startEdit(p) {
+  editId = p.id;
+  $("location").value = p.location; $("ltype").value = p.land_type;
+  $("cents").value = p.total_cents; $("unit").value = "1";
+  $("ppc").value = p.price_per_cent; $("status").value = p.status;
+  $("owner").value = p.owner; $("phone").value = p.owner_phone || ""; $("details").value = p.details || "";
+  $("addTitle").textContent = "Edit property"; $("addBtn").textContent = "Save changes";
+  show("cancelEdit", true); $("addMsg").textContent = ""; calc(); setView("add");
+}
+function endEdit() {
+  editId = null; $("addForm").reset();
+  $("addTitle").textContent = "Add property"; $("addBtn").textContent = "Save property";
+  show("cancelEdit", false); $("addMsg").textContent = ""; calc();
+}
+$("cancelEdit").onclick = () => { endEdit(); setView("list"); };
+
 $("addForm").onsubmit = async e => {
   e.preventDefault();
   const btn = $("addBtn"), msg = $("addMsg"); btn.disabled = true;
-  const { error } = await db.from("properties").insert({
+  const row = {
     location: $("location").value.trim(), land_type: $("ltype").value,
     total_cents: +$("cents").value * +$("unit").value, status: $("status").value, price_per_cent: +$("ppc").value,
     owner: $("owner").value.trim(), owner_phone: $("phone").value.trim() || null,
     details: $("details").value.trim() || null
-  });
+  };
+  const { error } = editId
+    ? await db.from("properties").update(row).eq("id", editId)
+    : await db.from("properties").insert(row);
   btn.disabled = false;
   msg.className = "msg " + (error ? "err" : "ok");
   if (error) { msg.textContent = "Could not save. Check all fields and try again."; return; }
-  e.target.reset(); calc(); load(); msg.textContent = "Property saved."; 
+  if (editId) { endEdit(); setView("list"); return; }
+  e.target.reset(); calc(); load(); msg.textContent = "Property saved.";
 };
 
 $("loginForm").onsubmit = async e => {
