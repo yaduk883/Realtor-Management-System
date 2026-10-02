@@ -122,8 +122,8 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-
-const SUPABASE_URL = "YOUR-PROJECT";
+  
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
 const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -221,7 +221,13 @@ $("loginForm").onsubmit = async e => {
   e.preventDefault(); const b = $("loginBtn"); b.disabled = true; $("loginMsg").textContent = "";
   const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pw").value });
   b.disabled = false;
-  if (error) $("loginMsg").textContent = "Wrong email or password.";
+  if (error) {
+    const m = (error.message || "").toLowerCase();
+    $("loginMsg").textContent = m.includes("invalid login") ? "Wrong email or password."
+      : m.includes("not confirmed") ? "This account's email is not confirmed yet. Ask the admin to confirm it in Supabase."
+      : m.includes("api key") || m.includes("fetch") ? "Cannot reach the database. The site's Supabase settings look wrong."
+      : "Sign-in failed: " + error.message;
+  }
   else $("pw").value = "";
 };
 $("logout").onclick = () => db.auth.signOut();
